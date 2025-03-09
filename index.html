@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teletext JSON viewer</title>
+  <style>
+    body {
+      background-color: black;
+    }
+    .teletext pre {
+      font-family: monospace;
+      white-space: pre;
+      font-size: 16px;
+      color: white;
+      background-color: black;
+      padding: 10px;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: block;
+    }
+    .loading-block {
+      animation: colorCycle 2s infinite;
+    }
+    @keyframes colorCycle {
+      0% { color: #FF0000; }   /* red */
+      14% { color: #00FF00; }  /* green */
+      28% { color: #FFFF00; }  /* yellow */
+      42% { color: #0000FF; }  /* blue */
+      57% { color: #FF00FF; }  /* magenta */
+      71% { color: #00FFFF; }  /* cyan */
+      85% { color: #FFFFFF; }  /* white */
+      100% { color: #FF0000; } /* red */
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <pre class="teletext">
+      <span style="color: #FF0000;">L</span><span style="color: #00FF00;">O</span><span style="color: #FFFF00;">A</span><span style="color: #0000FF;">D</span><span style="color: #FF00FF;">I</span><span style="color: #00FFFF;">N</span><span style="color: #FFFFFF;">G</span> <span class="loading-block">█</span>
+    </pre>
+  </div>
+  <div id="viewer"></div>
+  <script type="text/javascript">
+    (function() {
+      // Define a color mapping for teletext colors
+      const colorMap = {
+        "black": "#000000",
+        "red": "#FF0000",
+        "green": "#00FF00",
+        "yellow": "#FFFF00",
+        "blue": "#0000FF",
+        "magenta": "#FF00FF",
+        "cyan": "#00FFFF",
+        "white": "#FFFFFF"
+      };
+
+      // Show loading indicator initially
+      document.getElementById('loading').style.display = 'block';
+
+      // Load JSON into viewer
+      fetch('output.json')
+        .then(response => response.json())
+        .then(data => {
+          const viewer = document.getElementById('viewer');
+
+          // Loop through each page in the JSON data
+          data.pages.forEach(page => {
+            // Create a div for the page
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page';
+            pageDiv.dataset.magazine = page.magazine;
+            pageDiv.dataset.page = page.page;
+            pageDiv.dataset.subpage = page.subpage;
+
+            // Add a header with the page number
+            const header = document.createElement('h2');
+            header.textContent = `Page ${page.page}`;
+            header.style.color = 'white'; // Ensure visibility on black background
+            pageDiv.appendChild(header);
+
+            // Create a pre element for the teletext content
+            const pre = document.createElement('pre');
+            pre.className = 'teletext';
+
+            // Process each row and character
+            const rowsHtml = page.rows.map(row => {
+              const rowHtml = row.map(char => {
+                let displayChar;
+                // Handle normal characters (strings) and concealed text
+                if (typeof char.char === 'string') {
+                  displayChar = char.concealed ? ' ' : char.char;
+                }
+                // Handle graphics characters
+                else if (char.char.type === 'graphics') {
+                  displayChar = '█'; // Placeholder for graphics
+                }
+                // Fallback for unexpected data
+                else {
+                  displayChar = '?';
+                }
+
+                // Apply styles based on foreground and background colors
+                const style = `color: ${colorMap[char.fg]}; background-color: ${colorMap[char.bg]};`;
+                return `<span style="${style}">${displayChar}</span>`;
+              }).join(''); // Join characters with no extra space
+              return rowHtml;
+            }).join('\n'); // Join rows with newlines
+
+            // Set the HTML content of the pre element
+            pre.innerHTML = rowsHtml;
+            pageDiv.appendChild(pre);
+            viewer.appendChild(pageDiv);
+          });
+
+          // Hide loading indicator after rendering
+          document.getElementById('loading').style.display = 'none';
+        })
+        .catch(error => {
+          console.error('Error loading JSON:', error);
+          // Display error message in the loading div
+          document.getElementById('loading').innerHTML = '<pre class="teletext" style="color: red;">Error loading JSON</pre>';
+        });
+    })();
+  </script>
+</body>
+</html>
